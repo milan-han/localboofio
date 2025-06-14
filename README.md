@@ -9,10 +9,10 @@ This project is a small browser game. Open `index.html` in any modern web browse
 4. The game should load immediately and you can play from the title screen.
 
 ## Development
-Development mainly happens inside `script.js` and `style.css`.
+Development mainly happens inside `js/script.js` and `css/style.css`.
 
-1. Edit `script.js` to modify the game logic.
-2. Edit `style.css` to adjust visual styles.
+1. Edit `js/script.js` to modify the game logic.
+2. Edit `css/style.css` to adjust visual styles.
 3. For testing changes, run a local HTTP server (for example with `python3 -m http.server`) and navigate to `http://localhost:8000` in your browser. This avoids issues with local file permissions.
 4. Refresh the browser to see your changes.
 
