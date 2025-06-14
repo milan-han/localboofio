@@ -24,6 +24,7 @@ Development mainly happens inside the `js` and `css` folders.
 To tweak behaviour, start with `js/config.js` and adjust the exported values.
 All modules are ES6 modules so you can import new functionality easily.
 When testing in the browser, serve the files over HTTP to avoid module loading issues.
+Opening index.html directly using the file:// protocol will not work because browsers block ES modules in that mode. Always start a local server for testing.
 
 1. Edit the relevant files in `js/` to modify game logic.
 2. Edit `css/style.css` to adjust visual styles.
