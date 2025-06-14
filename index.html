@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Car Ball</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Retro video player in bottom-right corner */
+        .retro-player {
+            position: fixed;
+            left: 0;
+            bottom: 410px; /* 10px gap above chat (400px tall) */
+            width: 320px;            /* base width */
+            aspect-ratio: 4 / 3;     /* classic TV commercials ratio */
+            height: auto;            /* auto-calculated from aspect ratio */
+            background: #000;
+            border: 4px solid #666666;
+            box-shadow: 4px 4px 0px #333333;
+            z-index: 30;
+            overflow: hidden; /* ensure cover stays inside */
+            transition: width 0.3s, bottom 0.3s;
+        }
+
+        .retro-player.compressed {
+            width: 200px;           /* match compressed chat width */
+            bottom: 260px;          /* 10px gap above 250px compressed chat */
+        }
+
+        .retro-player iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            pointer-events: none; /* disable hover UI & controls */
+        }
+
+        /* Native video element styling */
+        .retro-player video {
+            width: 100%;
+            height: 100%;
+            border: none;
+            pointer-events: none;
+            object-fit: cover;
+        }
+
+        /* Black screen cover that fades out */
+        .retro-player .video-cover {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            z-index: 2;
+            pointer-events: auto; /* allow click to toggle mute */
+            animation: none;
+        }
+
+        /* Mute icon (speaker with slash) */
+        .mute-icon {
+            position: absolute;
+            bottom: 6px;
+            right: 6px;
+            width: 24px;
+            height: 24px;
+            background: rgba(0,0,0,0.6);
+            border-radius: 4px;
+            cursor: pointer;
+            z-index: 3;
+            display: none; /* only visible when muted */
+            padding: 2px;
+        }
+        .mute-icon img {
+            width: 100%;
+            height: 100%;
+            filter: invert(1); /* make lines white against dark bg */
+        }
+    </style>
+</head>
+<body>
+    <button class="login-btn">LOG IN</button>
+    <!-- Logo at top of page -->
+    <div class="logo-container">
+        <img src="LOGO.png" alt="Cars N' Balls 10" class="game-logo">
+    </div>
+
+    <!-- Chat Interface -->
+    <div class="chat-panel" id="chatPanel">
+        <div class="chat-header">LOBBY CHAT</div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-message system">Welcome to Car Ball!</div>
+            <div class="chat-message friend">BuddyBot42: Ready to play some car ball?</div>
+        </div>
+        <div class="chat-input-area">
+            <div class="chat-prompt">/ to chat</div>
+            <input type="text" class="chat-input" id="chatInput" placeholder="Type a message..." style="display: none;">
+        </div>
+    </div>
+
+    <!-- Multiplayer Controls -->
+    <div class="multiplayer-panel" id="multiplayerPanel">
+        <div class="panel-title">GAME MODE</div>
+        
+        <div class="mode-selector">
+            <button class="mode-btn" onclick="selectMode('npc')">Local</button>
+            <button class="mode-btn" onclick="selectMode('friend')">WITH FRIENDS</button>
+            <button class="mode-btn active" onclick="selectMode('matchmaking')">MATCHMAKING</button>
+        </div>
+
+        <div class="mode-content hidden" id="npcMode">
+            <div class="panel-row">
+                <label class="panel-label">GAME TYPE:</label>
+                <div class="game-type-selector">
+                    <button class="game-type-btn active" onclick="setGameType('points')">POINTS</button>
+                    <button class="game-type-btn" onclick="setGameType('timed')">TIMED</button>
+                </div>
+            </div>
+            <div class="panel-row" id="pointsSettings">
+                <label class="panel-label">POINTS TO WIN:</label>
+                <div class="points-selector">
+                    <button class="points-btn" onclick="setPointsToWin(3)">3</button>
+                    <button class="points-btn active" onclick="setPointsToWin(5)">5</button>
+                    <button class="points-btn" onclick="setPointsToWin(7)">7</button>
+                    <button class="points-btn" onclick="setPointsToWin(10)">10</button>
+                </div>
+            </div>
+            <div class="panel-row hidden" id="timedSettings">
+                <label class="panel-label">MATCH TIME:</label>
+                <div class="time-selector">
+                    <button class="time-btn" onclick="setMatchTime(2)">2 MIN</button>
+                    <button class="time-btn active" onclick="setMatchTime(5)">5 MIN</button>
+                    <button class="time-btn" onclick="setMatchTime(10)">10 MIN</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="mode-content hidden" id="friendMode">
+            <div class="panel-row">
+                <button class="action-btn" onclick="createRoom()">CREATE ROOM</button>
+            </div>
+            <div class="panel-row">
+                <input type="text" class="room-input" placeholder="Enter room code..." id="roomCodeInput">
+                <button class="action-btn small" onclick="joinRoom()">JOIN</button>
+            </div>
+            <div class="room-info hidden" id="roomInfo">
+                <div class="room-code">Room: ABC123</div>
+                <div class="invite-section">
+                    <div class="invite-text">Share this link:</div>
+                    <div class="invite-link">carball.game/room/ABC123</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mode-content" id="matchmakingMode">
+            <div class="panel-row">
+                <button class="action-btn" onclick="findMatch()">FIND MATCH</button>
+            </div>
+            <div class="matchmaking-status hidden" id="matchmakingStatus">
+                <div class="status-text">Searching for players...</div>
+                <div class="status-dots">...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Start Button -->
+    <div class="start-game-button" id="startGameBtn" onclick="initiateCountdown()">
+        START MATCH
+    </div>
+
+    <!-- Countdown Overlay -->
+    <div class="countdown-overlay hidden" id="countdownOverlay">
+        <div class="countdown-number" id="countdownNumber">3</div>
+    </div>
+
+    <!-- Pause Menu Overlay -->
+    <div class="pause-overlay hidden" id="pauseOverlay">
+        <div class="pause-menu">
+            <div class="pause-title">GAME PAUSED</div>
+            <div class="pause-options">
+                <button class="pause-option-btn" id="resumeBtn" onclick="resumeGame()">RESUME</button>
+                <button class="pause-option-btn" id="restartBtn" onclick="restartMatch()">RESTART MATCH</button>
+                <button class="pause-option-btn" id="backToMenuBtn" onclick="returnToTitle()">BACK TO MENU</button>
+            </div>
+            <div class="pause-instructions">
+                <div class="control-hint">Press ESC or click RESUME to continue</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game End Overlay -->
+    <div class="game-end-overlay hidden" id="gameEndOverlay">
+        <div class="game-end-menu">
+            <div class="game-end-title" id="gameEndTitle">WINNER!</div>
+            <div class="game-end-subtitle" id="gameEndSubtitle">Player 1 Wins!</div>
+            <div class="final-score" id="finalScore">
+                <div class="final-score-row">
+                    <span id="finalP1Name">PLAYER 1</span>
+                    <span id="finalP1Score">5</span>
+                </div>
+                <div class="final-score-row">
+                    <span id="finalP2Name">PLAYER 2</span>
+                    <span id="finalP2Score">3</span>
+                </div>
+            </div>
+            <div class="game-end-options">
+                <button class="game-end-btn" id="playAgainBtn" onclick="playAgain()">PLAY AGAIN</button>
+                <button class="game-end-btn" id="backToMenuBtnEnd" onclick="returnToTitle()">BACK TO MENU</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="scoreBoard" class="scoreboard">
+        <div class="score-title">SCOREBOARD</div>
+        <div class="score-row labels" id="scoreLabels">
+            <span>PLAYER 1</span>
+            <span>PLAYER 2</span>
+        </div>
+        <div class="score-row values" id="scoreValues">
+            <span id="topP1">0</span>
+            <span id="topP2">0</span>
+        </div>
+    </div>
+
+    <!-- Game control buttons -->
+    <button class="back-btn hidden" id="backBtn" onclick="returnToTitle()">BACK</button>
+    <button class="pause-btn hidden" id="pauseBtn">⏸</button>
+
+    <canvas id="game" width="960" height="600"></canvas>
+
+    <!-- Retro Commercial Player -->
+    <div class="retro-player">
+        <!-- Random retro-commercial video pulled from Google Drive -->
+        <video id="retroVideo" autoplay muted playsinline></video>
+        <div class="video-cover"></div>
+        <div class="mute-icon" id="muteIcon" title="Unmute">
+            <img src="Mute_Icon.svg" alt="Muted Icon" />
+        </div>
+    </div>
+
+    <!-- Player Card Panel -->
+    <div class="player-card player-1" id="playerCard">
+        <div class="player-card-header" id="playerCardName" onclick="editPlayerName(1)">
+            PLAYER 1
+            <input type="text" class="player-name-input" id="player1NameInput" maxlength="12" onblur="savePlayerName(1)" onkeypress="handleNameKeypress(event, 1)">
+        </div>
+        <canvas id="playerCardCanvas" width="240" height="160"></canvas>
+        <div class="color-selector" id="player1ColorSelector">
+            <div class="color-option" data-color="#c62828" style="background-color: #c62828;" onclick="selectCarColor(1, '#c62828')" title="Red"></div>
+            <div class="color-option" data-color="#2962ff" style="background-color: #2962ff;" onclick="selectCarColor(1, '#2962ff')" title="Blue"></div>
+            <div class="color-option" data-color="#7b1fa2" style="background-color: #7b1fa2;" onclick="selectCarColor(1, '#7b1fa2')" title="Purple"></div>
+            <div class="color-option" data-color="#f9a825" style="background-color: #f9a825;" onclick="selectCarColor(1, '#f9a825')" title="Yellow"></div>
+            <div class="color-option" data-color="#e91e63" style="background-color: #e91e63;" onclick="selectCarColor(1, '#e91e63')" title="Pink"></div>
+            <div class="color-option" data-color="#212121" style="background-color: #212121;" onclick="selectCarColor(1, '#212121')" title="Black"></div>
+        </div>
+    </div>
+
+    <!-- Player 2 Card Panel -->
+    <div class="player-card player-2" id="player2Card">
+        <div class="player-card-header" id="player2CardName" onclick="editPlayerName(2)">
+            PLAYER 2
+            <input type="text" class="player-name-input" id="player2NameInput" maxlength="12" onblur="savePlayerName(2)" onkeypress="handleNameKeypress(event, 2)">
+            <div class="player-dropdown" onclick="togglePlayer2Dropdown(event)"></div>
+            <div class="player-dropdown-menu" id="player2Dropdown">
+                <div class="dropdown-option" onclick="setPlayer2Type('human')">HUMAN</div>
+                <div class="dropdown-option" onclick="setPlayer2Type('npc')">NPC</div>
+            </div>
+        </div>
+        <canvas id="player2CardCanvas" width="240" height="160"></canvas>
+        <div class="color-selector" id="player2ColorSelector">
+            <div class="color-option" data-color="#2962ff" style="background-color: #2962ff;" onclick="selectCarColor(2, '#2962ff')" title="Blue"></div>
+            <div class="color-option" data-color="#c62828" style="background-color: #c62828;" onclick="selectCarColor(2, '#c62828')" title="Red"></div>
+            <div class="color-option" data-color="#7b1fa2" style="background-color: #7b1fa2;" onclick="selectCarColor(2, '#7b1fa2')" title="Purple"></div>
+            <div class="color-option" data-color="#f9a825" style="background-color: #f9a825;" onclick="selectCarColor(2, '#f9a825')" title="Yellow"></div>
+            <div class="color-option" data-color="#e91e63" style="background-color: #e91e63;" onclick="selectCarColor(2, '#e91e63')" title="Pink"></div>
+            <div class="color-option" data-color="#212121" style="background-color: #212121;" onclick="selectCarColor(2, '#212121')" title="Black"></div>
+        </div>
+        <div class="npc-difficulty-buttons" id="npcDifficultyButtons">
+            <button class="difficulty-btn" onclick="setNpcDifficulty(1)">1</button>
+            <button class="difficulty-btn" onclick="setNpcDifficulty(2)">2</button>
+            <button class="difficulty-btn" onclick="setNpcDifficulty(3)">3</button>
+            <button class="difficulty-btn" onclick="setNpcDifficulty(4)">4</button>
+            <button class="difficulty-btn" onclick="setNpcDifficulty(5)">5</button>
+            <button class="difficulty-btn" onclick="setNpcDifficulty(6)">6</button>
+            <button class="difficulty-btn" onclick="setNpcDifficulty(7)">7</button>
+            <button class="difficulty-btn" onclick="setNpcDifficulty(8)">8</button>
+            <button class="difficulty-btn" onclick="setNpcDifficulty(9)">9</button>
+            <button class="difficulty-btn active" onclick="setNpcDifficulty(10)">10</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // ******** Retro-ad player logic using Google Drive videos ********
+        document.addEventListener('DOMContentLoaded', () => {
+            // -------- Fetch list of commercials from Internet Archive --------
+            const archiveId = '2007-wnac-tv-commercials';
+            const metadataUrl = `https://archive.org/metadata/${archiveId}`;
+
+            const videoEl = document.getElementById('retroVideo');
+            // Do not loop the same video; we will shuffle manually
+            videoEl.loop = false;
+            // Will hold the list of available MP4 files
+            let mp4s = [];
+
+            // Helper to pick a random commercial and play it
+            function playRandom() {
+                if (mp4s.length === 0) return; // List not ready yet
+                const randFile = mp4s[Math.floor(Math.random() * mp4s.length)].name;
+                const videoUrl = `https://archive.org/download/${archiveId}/${encodeURIComponent(randFile)}`;
+                videoEl.src = videoUrl;
+                videoEl.play().catch(() => {}); // Safeguard against autoplay blocking
+            }
+
+            fetch(metadataUrl)
+                .then(r => r.json())
+                .then(data => {
+                    const files = data?.files || [];
+                    mp4s = files.filter(f => /\.mp4$/i.test(f.name));
+                    if (mp4s.length === 0) throw new Error('No mp4 files found');
+                    playRandom();
+                })
+                .catch(err => {
+                    console.error('Failed to load archive video', err);
+                });
+
+            const cover = document.querySelector('.retro-player .video-cover');
+            const muteIcon = document.getElementById('muteIcon');
+
+            function updateIcon() {
+                muteIcon.style.display = videoEl.muted ? 'block' : 'none';
+            }
+
+            function toggleMute() {
+                videoEl.muted = !videoEl.muted;
+                // Ensure playback continues if some system action paused it
+                if (videoEl.paused) videoEl.play();
+                updateIcon();
+            }
+
+            // Click handlers
+            cover.addEventListener('click', toggleMute);
+            muteIcon.addEventListener('click', (e) => { e.stopPropagation(); toggleMute(); });
+
+            // When a commercial ends, queue up a new random one
+            videoEl.addEventListener('ended', playRandom);
+
+            // Auto-resume if video becomes paused (e.g. AirPods removed)
+            videoEl.addEventListener('pause', () => {
+                setTimeout(() => { if (videoEl.paused) videoEl.play(); }, 200);
+            });
+
+            updateIcon();
+        });
+    </script>
+</body>
+</html> 
+ 
