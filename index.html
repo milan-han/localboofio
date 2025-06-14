@@ -11,6 +11,11 @@
     <link rel="stylesheet" href="css/retro-player.css">
 </head>
 <body>
+    <script>
+    if (location.protocol === "file:") {
+        alert("Car Ball must be served over HTTP. Start a local server for the game to run correctly.");
+    }
+    </script>
     <button class="login-btn">LOG IN</button>
     <!-- Logo at top of page -->
     <div class="logo-container">
